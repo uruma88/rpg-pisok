@@ -36,6 +36,7 @@ async def serve_game():
 app.mount("/", StaticFiles(directory=current_dir), name="static")
 
 if __name__ == "__main__":
-    # BotHost передает порт через переменную PORT
-    port = int(os.environ.get("PORT", 3000))
+    # Хостинг сам скажет, какой порт использовать
+    port = int(os.environ.get("PORT", 3000)) 
+    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=port)
