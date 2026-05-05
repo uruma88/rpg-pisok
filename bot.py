@@ -11,28 +11,29 @@ app = FastAPI()
 mimetypes.add_type('application/wasm', '.wasm')
 mimetypes.add_type('application/x-pck', '.pck')
 
-# Определяем папку, где лежит сам bot.py
+# Определяем реальную папку, где лежит этот скрипт
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# Принудительно меняем рабочую директорию на папку со скриптом
+# Принудительно заставляем сервер работать именно в этой папке
 os.chdir(current_dir)
 
 @app.get("/")
 async def serve_game():
-    # Ищем index.html именно в текущей папке
-    if os.path.exists("index.html"):
-        return FileResponse("index.html")
+    index_path = os.path.join(current_dir, "index.html")
     
-    # Если не нашли — выводим список файлов для диагностики
-    files = os.listdir(".")
+    # Если файл найден — отдаем его
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    
+    # Если не найден — показываем всё, что видит сервер, для диагностики
     return {
         "status": "error",
         "message": "index.html not found",
-        "work_dir": os.getcwd(),
-        "files_here": files
+        "current_dir": current_dir,
+        "files_found_here": os.listdir(current_dir)
     }
 
-# Монтируем корень для раздачи .js, .wasm и .pck
-app.mount("/", StaticFiles(directory="."), name="static")
+# Раздаем остальные файлы (js, wasm, pck)
+app.mount("/", StaticFiles(directory=current_dir), name="static")
 
 if __name__ == "__main__":
     # BotHost передает порт через переменную PORT
