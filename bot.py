@@ -36,7 +36,8 @@ async def serve_game():
 app.mount("/", StaticFiles(directory=current_dir), name="static")
 
 if __name__ == "__main__":
-    # Хостинг сам скажет, какой порт использовать
-    port = int(os.environ.get("PORT", 3000)) 
     import uvicorn
+    import os
+    # Берем порт из настроек хостинга или ставим 8080 по умолчанию
+    port = int(os.environ.get("PORT", 8080)) 
     uvicorn.run(app, host="0.0.0.0", port=port)
