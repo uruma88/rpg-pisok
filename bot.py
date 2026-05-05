@@ -7,32 +7,30 @@ import uvicorn
 
 app = FastAPI()
 
-# Добавляем типы для корректной работы Godot
+# Типы файлов для Godot
 mimetypes.add_type('application/wasm', '.wasm')
 mimetypes.add_type('application/x-pck', '.pck')
 
-# Явно указываем путь к текущей папке
-current_dir = os.path.dirname(os.path.abspath(__file__))
+# ЗАГОЛОВКИ БЕЗОПАСНОСТИ (без них Godot 4 зависнет на загрузке)
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
+    return response
+
+# Путь к файлам в контейнере BotHost
+current_dir = "/app"
 
 @app.get("/")
 async def serve_game():
     index_path = os.path.join(current_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    
-    # Если файла нет, выведем список того, что видит сервер
-    return {
-        "status": "error",
-        "message": "index.html not found",
-        "debug_current_dir": current_dir,
-        "files_in_directory": os.listdir(current_dir)
-    }
+    return {"error": "index.html not found", "files": os.listdir(current_dir)}
 
-# Монтируем статику ПОСЛЕ основного роута
 app.mount("/", StaticFiles(directory=current_dir), name="static")
 
 if __name__ == "__main__":
-    # На BotHost порт часто передается через переменную PORT
     port = int(os.environ.get("PORT", 8080))
-    # ВАЖНО: используем 0.0.0.0, чтобы сервер был виден снаружи
     uvicorn.run(app, host="0.0.0.0", port=port)
