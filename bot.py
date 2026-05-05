@@ -7,29 +7,33 @@ import uvicorn
 
 app = FastAPI()
 
-# Правильные типы для Godot
+# Принудительно устанавливаем типы для Godot
 mimetypes.add_type('application/wasm', '.wasm')
 mimetypes.add_type('application/x-pck', '.pck')
 
-# Путь к текущей директории
-current_dir = os.path.dirname(os.path.realpath(__file__))
-
-# Сначала монтируем статику, НО НЕ на корень, чтобы не было конфликтов
-app.mount("/game_files", StaticFiles(directory=current_dir), name="static")
+# Путь к директории, где лежит этот скрипт
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 @app.get("/")
 async def serve_game():
-    # Явно указываем путь к файлу
-    index_path = os.path.join(current_dir, "index.html")
-    if os.path.exists(index_path):
+    index_path = os.path.join(BASE_DIR, "index.html")
+    
+    # Если файл найден — отдаем его
+    if os.path.isfile(index_path):
         return FileResponse(index_path)
-    return {"error": f"index.html not found. Files in root: {os.listdir(current_dir)}"}
+    
+    # Если не найден — показываем список файлов, чтобы понять, где мы
+    files_in_dir = os.listdir(BASE_DIR)
+    return {
+        "error": "index.html not found",
+        "current_directory": BASE_DIR,
+        "files_available": files_in_dir
+    }
 
-@app.post("/api/update_score")
-async def update_score(data: dict):
-    print(f"Клики: {data}")
-    return {"status": "ok"}
+# Раздаем все остальные файлы (js, wasm, pck)
+app.mount("/", StaticFiles(directory=BASE_DIR), name="static")
 
 if __name__ == "__main__":
+    # Используем порт 3000 или тот, что даст хостинг
     port = int(os.environ.get("PORT", 3000))
     uvicorn.run(app, host="0.0.0.0", port=port)
