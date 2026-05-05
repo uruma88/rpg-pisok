@@ -2,11 +2,12 @@ import os
 import mimetypes
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 import uvicorn
 
 app = FastAPI()
 
+# Типы файлов для Godot
 mimetypes.add_type('application/wasm', '.wasm')
 mimetypes.add_type('application/x-pck', '.pck')
 
@@ -17,34 +18,31 @@ async def add_security_headers(request, call_next):
     response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
     return response
 
-# Проверяем все возможные папки
-base_path = os.getcwd() # Текущая папка, где работает бот
-
 @app.get("/")
-async def debug_root():
-    # Ищем index.html во всех подпапках
-    files_tree = []
-    found_path = None
-    
-    for root, dirs, files in os.walk(base_path):
+async def root():
+    # Собираем список всех файлов в проекте для диагностики
+    all_files = []
+    found_index = None
+    for root_dir, dirs, files in os.walk("."):
         for file in files:
-            full_path = os.path.join(root, file)
-            files_tree.append(full_path.replace(base_path, ""))
+            rel_path = os.path.join(root_dir, file)
+            all_files.append(rel_path)
             if file == "index.html":
-                found_path = root
+                found_index = rel_path
 
-    if found_path:
-        return FileResponse(os.path.join(found_path, "index.html"))
+    # Если нашли игру — запускаем
+    if found_index:
+        return FileResponse(found_index)
     
-    # Если не нашли — покажем дерево файлов прямо в браузере
-    return {
-        "status": "index.html not found",
-        "i_am_searching_in": base_path,
-        "files_i_found": files_tree
-    }
+    # Если не нашли — показываем список файлов, чтобы понять, где они
+    return JSONResponse(content={
+        "error": "index.html не найден",
+        "where_am_i": os.getcwd(),
+        "files_visible_to_bot": all_files
+    })
 
-# Монтируем статику на всякий случай везде
-app.mount("/static", StaticFiles(directory=base_path), name="static")
+# Монтируем корень для доступа к .wasm и .pck
+app.mount("/", StaticFiles(directory="."), name="static")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
