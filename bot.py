@@ -7,33 +7,34 @@ import uvicorn
 
 app = FastAPI()
 
-# Принудительно устанавливаем типы для Godot
+# Стандартные типы для корректной работы Godot
 mimetypes.add_type('application/wasm', '.wasm')
 mimetypes.add_type('application/x-pck', '.pck')
 
-# Путь к директории, где лежит этот скрипт
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Определяем папку, где лежит сам bot.py
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Принудительно меняем рабочую директорию на папку со скриптом
+os.chdir(current_dir)
 
 @app.get("/")
 async def serve_game():
-    index_path = os.path.join(BASE_DIR, "index.html")
+    # Ищем index.html именно в текущей папке
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
     
-    # Если файл найден — отдаем его
-    if os.path.isfile(index_path):
-        return FileResponse(index_path)
-    
-    # Если не найден — показываем список файлов, чтобы понять, где мы
-    files_in_dir = os.listdir(BASE_DIR)
+    # Если не нашли — выводим список файлов для диагностики
+    files = os.listdir(".")
     return {
-        "error": "index.html not found",
-        "current_directory": BASE_DIR,
-        "files_available": files_in_dir
+        "status": "error",
+        "message": "index.html not found",
+        "work_dir": os.getcwd(),
+        "files_here": files
     }
 
-# Раздаем все остальные файлы (js, wasm, pck)
-app.mount("/", StaticFiles(directory=BASE_DIR), name="static")
+# Монтируем корень для раздачи .js, .wasm и .pck
+app.mount("/", StaticFiles(directory="."), name="static")
 
 if __name__ == "__main__":
-    # Используем порт 3000 или тот, что даст хостинг
+    # BotHost передает порт через переменную PORT
     port = int(os.environ.get("PORT", 3000))
     uvicorn.run(app, host="0.0.0.0", port=port)
