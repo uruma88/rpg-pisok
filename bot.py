@@ -7,23 +7,31 @@ import uvicorn
 
 app = FastAPI()
 
-# Важно для Godot: правильно определяем типы файлов
+# Принудительно ставим типы, чтобы браузер не ругался на игру
 mimetypes.add_type('application/wasm', '.wasm')
 mimetypes.add_type('application/x-pck', '.pck')
+mimetypes.add_type('text/javascript', '.js')
 
-# Раздаем статические файлы игры из корня репозитория
-app.mount("/static", StaticFiles(directory="."), name="static")
+# Определяем путь к текущей папке
+current_dir = os.path.dirname(os.path.realpath(__file__))
 
+# 1. Главная страница
 @app.get("/")
-async def serve_game():
-    # Отдаем скомпилированный index.html от Godot
-    return FileResponse("index.html")
+async def serve_index():
+    index_path = os.path.join(current_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"error": "index.html not found in root directory"}
 
-# API для сохранения прогресса (то, что отправляет HTTPRequest из Godot)
+# 2. Раздача всех остальных файлов игры (js, wasm, pck)
+app.mount("/", StaticFiles(directory=current_dir), name="static")
+
 @app.post("/api/update_score")
 async def update_score(data: dict):
-    print(f"Обновление счета: {data}")
-    return {"status": "success", "received": data}
+    print(f"Данные из игры: {data}")
+    return {"status": "ok"}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=3000)
+    # Хостинг сам назначит порт через переменную PORT
+    port = int(os.environ.get("PORT", 3000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
